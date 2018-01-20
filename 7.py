@@ -1,7 +1,7 @@
 p_sofar = [2]
 p = 3
 i = 1
-limit = 10001
+limit = 543+3
 
 def is_prime(x, p_sofar):
     for p in p_sofar:
@@ -15,4 +15,6 @@ while i < limit:
         p_sofar.append(p)
     p += 2 # don't need to test even numbers
         
-print p_sofar[limit-1]
+print p_sofar[3:]
+print len(p_sofar[3:])
+print sum(p_sofar[3:])
