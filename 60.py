@@ -1,92 +1,128 @@
-# Ideas:
-# - keep a list of primes (sorted), save it as a file
-# - is_prime is a binary search through the list
-# - maybe keep it as 2 million primes for now? Can increase later
+# TIME COMPLEXITY IS REAL!!! This sieve thing is so powerful
+# Okay but you gotta do incremental sieve or else it's gonna flood yo memory
+# Answer: sum([13, 5197, 5701, 6733, 8389]) = 26033
+# Dunno why it takes a while (where a while is like...<5 minutes)
 
-# Iterate over the sum of primes
-# Partition it, see if partition sizes are primes, and then see if
-# they combined are primes?
-# maybe faster to limit based on which two primes combine to primes..
-# So graph? Where edges are based on if they combine to be primes
-# Find K5 graph with the smallest total sum... how to do that?
+def calculate_primes(limit):
+    nums = [True for x in xrange(limit)]
+    nums[0] = False
+    nums[1] = False
 
-import networkx as nx
-import os
+    for i in xrange(2, int(limit**0.5)):
+        if nums[i]:
+            for j in [i*(i+k) for k in range( int((float(limit-1)/i) - i) + 1)]:
+                nums[j] = False
+    return [p for p in xrange(limit) if nums[p]]
 
+def ceil(x):
+    if int(x) == x:
+        return int(x)
+    else: return int(x)+1
 
-###################################################
-#Calculates and saves all of the primes up to LIMIT
-###################################################
-LIMIT = 10**6
-filename = "primes.txt"
-### Loads list of primes
-def load_primes():
-    primes = []
-    if os.path.exists(filename):
-        f = open(filename, "r")
-        for line in f:
-            primes.append(int(line[:-1]))
-        f.close()
+def multiples_in_range(p, lower, upper):
+    lowest_multiplier = ceil(lower/float(p))
+    highest_multiplier = ceil(upper/float(p))
+    return [p*x for x in xrange(lowest_multiplier, highest_multiplier)]
+
+def binary_search(x, values):
+    # Assumes values is sorted in increasing order
+    # Returns index of least value > x
+    lower, upper = 0, len(values)-1
+    tmp = values[(lower+upper)/2]
+    while tmp != x and upper-lower>1:
+        if tmp > x: upper = (lower+upper)/2
+        else: lower = (lower+upper)/2
+        tmp = values[(lower+upper)/2]
+
+    if upper-lower == 1:
+        if values[upper] < x: return upper + 1
+        elif values[lower] < x: return upper
+        else: return lower
+
+    if tmp == x:
+        return (lower+upper)/2 + 1
+    
+def segmented_sieve(limit):
+    delta = int(limit**0.5)
+    primes = calculate_primes(delta)
+    for i in xrange(1, limit/delta+1):
+
+        if i%100 == 0:
+            print "done with {} out of {} for segmented sieve".format(i, limit/delta+1)
+        # Represents [i*delta, i*delta+1, ... (i+1)*delta-1]
+        nums = [True for x in xrange(delta)]
+        m = (i+1)*delta - 1
+        primes_to_check = primes[:binary_search(int(m**0.5), primes)]
+        #primes_to_check = [p for p in primes if p <= m**0.5]
+
+        for p in primes_to_check:
+            for multiple in multiples_in_range(p, i*delta, (i+1)*delta):
+                nums[multiple - i*delta] = False
+        primes = primes + [p+i*delta for p in xrange(delta) if nums[p]]
     return primes
 
-### Saves list into file
-def save_primes(p_sofar, prev_len):
-    f = open(filename, "a")
-    for prime in p_sofar[prev_len:]:
-        f.write(str(prime) + '\n')
-    f.close()
+def concat(a, b):
+    return int(str(a) + str(b))
 
-def is_prime(x, primes):
-    if x in primes:
-        return True
-    for p in primes:
-        if x%p==0:
-            return False
-    return True
+flag = True
+num_digits = 3
 
-### Finds all primes under x
-def all_primes(x):
-    p_sofar = load_primes()
-    prev_len = len(p_sofar)
-    if prev_len == 0:
-        start = 2
-    else: start = p_sofar[-1]+1
+while flag:
+    all_primes = set(segmented_sieve(10**(2*num_digits)))
+    primes = calculate_primes(10**num_digits)
+    print("Done calculating primes with {} digits".format(num_digits))
 
-    for i in xrange(start, x):
-        if is_prime(i, p_sofar):
-            p_sofar.append(i)
-        if i%10**4 == 0:
-            print "Calculating primes step {} out of {}".format(i, x)
-    save_primes(p_sofar, prev_len)
-    return p_sofar
+    edges = {}
+    for i1 in xrange(len(primes)):
+        p1 = primes[i1]
+        if i1 == len(primes): continue
+        for i2 in xrange(i1+1, len(primes)):
+            p2 = primes[i2]
+            if concat(p1, p2) in all_primes and concat(p2, p1) in all_primes:
+                if p1 in edges:
+                    edges[p1].append(p2)
+                else: edges[p1] = [p2]
+    
+    print("Done with edges")
+    # key is always smaller than value
+    
+    edges2 = {}
+    for p1 in edges:
+        for p2 in edges[p1]:
+            if p2 not in edges:
+                continue
+            p3_list = [p3 for p3 in edges[p2] if p3 in edges[p1]]
+            for p3 in p3_list:
+                if (p1, p2) in edges2:
+                    edges2[(p1, p2)].append(p3)
+                else: edges2[(p1, p2)] = [p3]
+    print("Done with edges2")
+    
+    edges3 = {}
+    for (p1, p2) in edges2:
+        for p3 in edges2[(p1, p2)]:
+            if p3 not in edges: continue
+            for p4 in edges[p3]:
+                if p4 in edges2[(p1, p2)]:
+                    if (p1, p2, p3) in edges3:
+                        edges3[(p1, p2, p3)].append(p4)
+                    else: edges3[(p1, p2, p3)] = [p4]
 
-primes = all_primes(LIMIT)
+    print("done with edges3")
+    
+    k5s = []
+    for (p1, p2, p3) in edges3:
+        for p4 in edges3[(p1, p2, p3)]:
+            if p4 not in edges: continue
+            for p5 in edges[p4]:
+                if p5 in edges3[(p1, p2, p3)]:
+                    k5s.append((p1, p2, p3, p4, p5))
+    print("done with k5s")
 
+    if len(k5s) == 0:
+        num_digits += 1
+    else:
+        flag = False
+        print len(k5s)
+        print min(k5s, key=lambda x: sum(x))
 
-################################################
-# Creates a graph with the primes
-################################################
-
-G = nx.Graph()
-for p in primes:
-    G.add_node(p)
-
-prime_set = set(primes)
-print "Adding edges to graph"
-for i in xrange(len(primes)):
-    if i%10**3 == 0:
-        print "Adding edge {} out of {}".format(i, len(primes))
-    for j in xrange(i, len(primes)):
-        if int(str(primes[i]) + str(primes[j])) in prime_set and int(str(primes[j]) + str(primes[i])) in prime_set:
-            G.add_edge(primes[i], primes[j])
-
-print "Finding max cliques"
-max_len = 0
-max_graphs = []
-for subgraph in nx.find_cliques(G):
-    if len(subgraph) > max_len:
-        max_graphs = [subgraph]
-        max_len = len(subgraph)
-    elif len(subgraph) == max_len:
-        max_graphs.append(subgraph)
-print max_graphs
